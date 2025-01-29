@@ -2,6 +2,7 @@ from typing import Callable, Dict, Any, Tuple, Set, List, Optional, Union
 from copy import copy, deepcopy
 import itertools
 from time import time
+import logging
 
 import numpy as np
 import torch
@@ -421,6 +422,7 @@ class RadaDamp(BaseDamper):
         self._meta["damper"] = "pradadamp"
         self._meta["norm2_hist"] = []
         self._meta["loss_hist"] = []
+        self._initial = (-1, -1)
 
     def _step_callback(self, model):
         with torch.no_grad():
@@ -451,23 +453,30 @@ class RadaDamp(BaseDamper):
             loss = np.max(losses)
         else:
             raise ValueError(f"reduction={self.reduction} not recognized")
-
-        if self._meta["model_updates"] <= max(self.dwell, self.wait):
+        if not (0 <= self.rho < 1):
+            raise ValueError(f"rho={self.rho} not valid, not in 0 <= rho < 1")
+        if np.isnan(loss) or np.isnan(norm2):
+            msg = f"radadamp didn't converge, {loss=} {norm2=}"
+            logging.warning(msg)
+            raise ConvergenceError(msg)
+        if (
+            self._meta["model_updates"] <= max(1, self.dwell, self.wait)
+            or self._initial == (-1, -1)
+        ):
             self._initial = (norm2, loss)
             self.norm2 = norm2
             self.loss = loss
             return self.initial_batch_size
-        if not (0 <= self.rho < 1):
-            raise ValueError(f"rho={self.rho} not valid, not in 0 <= rho < 1")
-
-        norm2_0, loss_0 = self._initial
-        self.norm2 = self.rho * self.norm2 + (1 - self.rho) * norm2
-        self.loss = self.rho * self.loss + (1 - self.rho) * loss
-        self._meta["norm2_hist"] = []
-        self._meta["loss_hist"] = []
-        bs = self.initial_batch_size / (0.5 * (self.loss / loss_0 + self.norm2 / norm2_0))
-        print(bs)
-        return _ceil(max(bs, self.initial_batch_size))
+        else:
+            assert self._initial != (-1, -1), f"{self._initial=}"
+            norm2_0, loss_0 = self._initial
+            assert norm2_0 >= 0 and loss_0 >= 0, f"{norm2_0=}, {loss_0=}"
+            self.norm2 = self.rho * self.norm2 + (1 - self.rho) * norm2
+            self.loss = self.rho * self.loss + (1 - self.rho) * loss
+            self._meta["norm2_hist"] = []
+            self._meta["loss_hist"] = []
+            bs = self.initial_batch_size / (0.5 * (self.loss / loss_0 + self.norm2 / norm2_0))
+            return _ceil(max(bs, self.initial_batch_size))
 
 class GeoDamp(BaseDamper):
     def __init__(self, *args, dampingdelay=5, dampingfactor=2, **kwargs):
@@ -482,7 +491,7 @@ class GeoDamp(BaseDamper):
         """
         assert self.dampingfactor >= 1
         epochs = self.meta["num_examples"] / self.meta["len_dataset"]
-        factor = self.dampingfactor ** (epochs // self.dampingdelay)
+        factor = int(self.dampingfactor) ** (epochs // int(self.dampingdelay))
         return self.initial_batch_size * factor
 
 

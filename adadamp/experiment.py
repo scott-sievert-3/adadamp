@@ -18,6 +18,8 @@ def breakpoint():
     pdb.set_trace()
 
 def _clean(x: Any) -> Any:
+    if isinstance(x, int):
+        return x
     if isinstance(x, dict):
         return {k: _clean(v) for k, v in x.items()}
     if isinstance(x, float):
@@ -61,7 +63,7 @@ def run(
         data.append(
             {"epoch_time": time(), **args, **opt.meta, **_train_stats, **test_stats}
         )
-        if False:#verbose:
+        if verbose:
             _s = {
                 k: v
                 for k, v in data[-1].items()
@@ -75,11 +77,10 @@ def run(
                     #"best_train_loss",
                     #"test_accuracy",
                     #"train_accuracy",
-                    #"test_loss",
+                    "test_loss",
                     "train_loss",
                 ]
             }
-            print([v for _, v in _s.items()])
             print(_clean(_s))
         epoch = data[-1]["epochs"]
         mu = data[-1]["model_updates"]
@@ -121,7 +122,7 @@ def train(
         setting ``verbose == 10`` will mean it prints 10 times per epoch.
 
     Returns
-    -------
+    ------
     model : nn.Module
         The update model.
 
@@ -138,7 +139,7 @@ def train(
     old_examples = opt._meta["num_examples"]
     data = []
     _loop_start = time()
-    while True:
+    for n_steps in itertools.count():
         num_examples_so_far = opt._meta["num_examples"] - start_examples
         if num_examples_so_far >= epochs * len(opt._dataset):
             break
@@ -154,6 +155,8 @@ def train(
         "_num_examples": num_examples_so_far,
         "_train_time": time() - _loop_start,
     }
+    if verbose:
+        print(meta["_epochs"], meta["_train_time"])
     return model, opt, meta, data
 
 
