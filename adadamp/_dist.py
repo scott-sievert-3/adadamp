@@ -2,7 +2,6 @@ from copy import copy, deepcopy
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Union, Tuple, NewType
 
-import dask
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,11 +9,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim import Optimizer
 from time import time
-from distributed import get_client
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 from sklearn.utils import check_random_state
-from skorch import NeuralNet
 from torch.autograd import Variable
 from torch.utils.data import Dataset, IterableDataset, TensorDataset
 from torch.nn.modules.loss import _Loss as Loss
@@ -348,6 +345,8 @@ class DaskBaseDamper:
         fit_params : dict
             Arguments to pass to ``self.module_.forward``.
         """
+        from distributed import get_client
+
         dataset = self._get_dataset(X, y=y)
         client = get_client()
 
