@@ -57,7 +57,7 @@ def run(
     for k in itertools.count():
         test_kwargs = dict(model=model, loss=opt._loss, device=device)
         _train_stats = {}
-        if train_stats:
+        if train_stats and k % 10 == 0:
             _train_stats = test(loader=train_test_loader, prefix="train", **test_kwargs)
         test_stats = test(loader=test_loader, prefix="test", **test_kwargs)
         data.append(
@@ -85,6 +85,12 @@ def run(
         epoch = data[-1]["epochs"]
         mu = data[-1]["model_updates"]
         if epoch >= args["epochs"]:
+            break
+        if epoch >= 25 and 60 < data[-1]["test_loss"]:
+            break
+        if epoch >= 5 and 300 < data[-1]["test_loss"]:
+            break
+        if epoch >= 2 and 1000 < data[-1]["test_loss"]:
             break
         try:
             model, opt, epoch_meta, epoch_data = train(
