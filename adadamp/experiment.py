@@ -42,7 +42,7 @@ def run(
     test_set=None,
     args=None,
     test_freq: Optional[Number] = None,
-    train_stats: bool = True,
+    train_stats: bool = False,
     verbose: bool = False,
     device: str = "cpu",
 ):
