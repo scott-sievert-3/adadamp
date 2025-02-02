@@ -415,9 +415,11 @@ class RadaDamp(BaseDamper):
         Memory. High rho means slow adaptation, very stable. Low rho means very
         adaptive, quick reaction.
     """
-    def __init__(self, *args, reduction: str = "mean", rho: float = 0.5, **kwargs):
+    def __init__(self, *args, reduction: str = "mean", rho: float = 0.5, min_batch_size: int=0, **kwargs):
         self.reduction = reduction
         self.rho = rho
+        self.min_batch_size = min_batch_size
+        print("minbs =", self.min_batch_size)
         super().__init__(*args, **kwargs)
         self._meta["damper"] = "pradadamp"
         self._meta["norm2_hist"] = []
@@ -476,7 +478,11 @@ class RadaDamp(BaseDamper):
             self._meta["norm2_hist"] = []
             self._meta["loss_hist"] = []
             bs = self.initial_batch_size / (0.5 * (self.loss / loss_0 + self.norm2 / norm2_0))
-            return _ceil(max(bs, self.initial_batch_size))
+
+            if self.min_batch_size:
+                return _ceil(max(bs, self.min_batch_size))
+            else:
+                return _ceil(max(bs, self.initial_batch_size))
 
 class GeoDamp(BaseDamper):
     def __init__(self, *args, dampingdelay=5, dampingfactor=2, **kwargs):
